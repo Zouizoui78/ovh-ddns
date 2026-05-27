@@ -10,6 +10,8 @@ import (
 )
 
 const (
+	PROG_NAME = "ovh-ddns"
+
 	CONFIG_PATH_ENV_VAR = "OVH_DDNS_CONFIG_PATH"
 
 	DOMAINS_FLAG      = "domains"
@@ -30,7 +32,7 @@ type Config struct {
 }
 
 func configInit(cmd *cobra.Command) {
-	viper.SetConfigName("config")
+	viper.SetConfigName(PROG_NAME)
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath(os.Getenv(CONFIG_PATH_ENV_VAR))
 	viper.AddConfigPath(".")

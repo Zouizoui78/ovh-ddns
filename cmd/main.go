@@ -8,8 +8,8 @@ import (
 )
 
 var cmd = &cobra.Command{
-	Use:   "ovh-ddns",
-	Short: "ovh-ddns",
+	Use:   config.PROG_NAME,
+	Short: config.PROG_NAME,
 	Run:   run,
 }
 
