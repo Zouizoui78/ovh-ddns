@@ -28,6 +28,13 @@ func run(cmd *cobra.Command, args []string) {
 	)
 }
 
+func init() {
+	cmd.PersistentFlags().String(config.DOMAINS_FLAG, "", "Domains for which to set the IP addresses")
+	cmd.PersistentFlags().String(config.APP_KEY_FLAG, "", "OVH application key")
+	cmd.PersistentFlags().String(config.APP_SECRET_FLAG, "", "OVH application secret")
+	cmd.PersistentFlags().String(config.CONSUMER_KEY_FLAG, "", "OVH application consumer key")
+}
+
 func main() {
 	cmd.Execute()
 }
