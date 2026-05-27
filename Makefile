@@ -29,11 +29,11 @@ run:
 	@go run -tags dev $(MAIN)
 
 .PHONY: test
-test: swagger
+test:
 	@go test -tags dev -cover -coverprofile=$(COVERAGE_FILE) ./...
 
 .PHONY: test-cicd
-test-cicd: swagger
+test-cicd:
 	@go test -tags dev -v -race -cover -coverprofile=$(COVERAGE_FILE) -json ./... > $(TEST_REPORT)
 
 .PHONY: benchmark
