@@ -2,6 +2,7 @@ package main
 
 import (
 	"log/slog"
+	"os"
 
 	"github.com/Zouizoui78/ovh-ddns/internal/config"
 	"github.com/spf13/cobra"
@@ -17,6 +18,7 @@ func run(cmd *cobra.Command, args []string) {
 	cfg, err := config.LoadConfig(cmd)
 	if err != nil {
 		slog.Error("failed to load configuration", "error", err)
+		os.Exit(1)
 	}
 
 	slog.Info(

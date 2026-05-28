@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -57,10 +58,39 @@ func LoadConfig(cmd *cobra.Command) (*Config, error) {
 
 	viper.AutomaticEnv()
 
-	var config Config
-	if err := viper.Unmarshal(&config); err != nil {
+	var cfg Config
+	if err := viper.Unmarshal(&cfg); err != nil {
 		return nil, err
 	}
 
-	return &config, nil
+	if err := validate(&cfg); len(err) != 0 {
+		for _, e := range err {
+			slog.Error("validation error", "error", e)
+		}
+		return nil, errors.New("validation error")
+	}
+
+	return &cfg, nil
+}
+
+func validate(cfg *Config) []error {
+	var err []error
+
+	if len(cfg.Domains) == 0 {
+		err = append(err, errors.New("need at least one configured domain"))
+	}
+
+	if cfg.Auth.AppKey == "" {
+		err = append(err, errors.New("app key cannot be empty"))
+	}
+
+	if cfg.Auth.AppSecret == "" {
+		err = append(err, errors.New("app secret cannot be empty"))
+	}
+
+	if cfg.Auth.ConsumerKey == "" {
+		err = append(err, errors.New("consumer key cannot be empty"))
+	}
+
+	return err
 }
