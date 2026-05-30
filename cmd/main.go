@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/Zouizoui78/ovh-ddns/internal/config"
+	"github.com/Zouizoui78/ovh-ddns/internal/fetcher"
 	"github.com/spf13/cobra"
 )
 
@@ -21,13 +22,15 @@ func run(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	slog.Info(
-		"config",
-		"domains", cfg.Domains,
-		"app_key", cfg.Auth.AppKey,
-		"app_secret", cfg.Auth.AppSecret,
-		"consumer_key", cfg.Auth.ConsumerKey,
-	)
+	slog.Info("cfg", "domains", cfg.Domains)
+
+	fetcher := fetcher.New()
+	ips, err := fetcher.FetchIps()
+	if err != nil {
+		slog.Error("failed to fetch ips", "err", err)
+	}
+
+	slog.Info("addr", "ipv4", ips.Ipv4, "ipv6", ips.Ipv6)
 }
 
 func init() {
