@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sync"
 
 	"github.com/Zouizoui78/ovh-ddns/internal/config"
 	"github.com/Zouizoui78/ovh-ddns/internal/ips"
@@ -37,6 +38,7 @@ func New(auth config.Auth) (*Ovh, error) {
 func (ovh *Ovh) GetDomainsIps(parentCtx context.Context, domains []string) (map[string]ips.Ips, error) {
 	eg, ctx := errgroup.WithContext(parentCtx)
 	ret := make(map[string]ips.Ips)
+	var mu sync.Mutex
 
 	for _, domain := range domains {
 		eg.Go(func() error {
@@ -44,7 +46,9 @@ func (ovh *Ovh) GetDomainsIps(parentCtx context.Context, domains []string) (map[
 			if err != nil {
 				return err
 			}
+			mu.Lock()
 			ret[domain] = *ip
+			mu.Unlock()
 			return nil
 		})
 	}
@@ -106,6 +110,9 @@ func (ovh *Ovh) getRecordTarget(ctx context.Context, domain string, recordType s
 
 	if len(ids) == 0 {
 		return nil, fmt.Errorf("there is no %s record for domain %s", recordType, domain)
+	}
+	if len(ids) > 1 {
+		slog.Warn("multiple dns record, picking first one", "domain", domain, "type", recordType)
 	}
 
 	var record dto.Record
