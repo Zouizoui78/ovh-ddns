@@ -7,6 +7,7 @@ import (
 
 	"github.com/Zouizoui78/ovh-ddns/internal/config"
 	"github.com/Zouizoui78/ovh-ddns/internal/fetcher"
+	"github.com/Zouizoui78/ovh-ddns/internal/ovh"
 	"github.com/spf13/cobra"
 )
 
@@ -26,8 +27,6 @@ func run(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	slog.Info("cfg", "domains", cfg.Domains)
-
 	fetcher := fetcher.New()
 	ips, err := fetcher.FetchIps(ctx)
 	if err != nil {
@@ -35,7 +34,18 @@ func run(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	slog.Info("addr", "ipv4", ips.V4, "ipv6", ips.V6)
+	ovh, err := ovh.New(cfg.Auth)
+	if err != nil {
+		slog.Error("failed to create ovh client", "err", err)
+	}
+
+	ovhIps, err := ovh.GetDomainsIps(ctx, cfg.Domains)
+	if err != nil {
+		slog.Error("failed to get ips from ovh", "err", err)
+	}
+
+	slog.Info("addr from provider", "ipv4", ips.V4, "ipv6", ips.V6)
+	slog.Info("addr from ovh", "map", ovhIps)
 }
 
 func init() {

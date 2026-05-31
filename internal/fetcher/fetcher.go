@@ -73,19 +73,19 @@ func fetchIp(ctx context.Context, c *http.Client) (net.IP, error) {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	resp, err := c.Do(req)
+	res, err := c.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get ip: %w", err)
 	}
-	defer resp.Body.Close()
+	defer res.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read body: %w", err)
 	}
 
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("ip fetch: got status code %d. body: '%s'", resp.StatusCode, body)
+	if res.StatusCode != 200 {
+		return nil, fmt.Errorf("ip fetch: got status code %d. body: '%s'", res.StatusCode, body)
 	}
 
 	return net.ParseIP(string(body)), nil
