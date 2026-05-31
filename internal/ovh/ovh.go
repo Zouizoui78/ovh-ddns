@@ -3,6 +3,7 @@ package ovh
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"sync"
 
@@ -13,10 +14,12 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-const ()
+type ovhClient interface {
+	GetWithContext(ctx context.Context, url string, resType any) error
+}
 
 type Ovh struct {
-	client *ovhapi.Client
+	client ovhClient
 }
 
 func New(auth config.Auth) (*Ovh, error) {
@@ -30,9 +33,13 @@ func New(auth config.Auth) (*Ovh, error) {
 		return nil, fmt.Errorf("failed to instantiate ovh client: %w", err)
 	}
 
+	return NewFromClient(client), nil
+}
+
+func NewFromClient(client ovhClient) *Ovh {
 	return &Ovh{
 		client: client,
-	}, nil
+	}
 }
 
 func (ovh *Ovh) GetDomainsIps(parentCtx context.Context, domains []string) (map[string]ips.Ips, error) {

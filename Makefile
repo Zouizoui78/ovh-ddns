@@ -2,6 +2,7 @@ PROG=ovh-ddns
 OUT=bin/$(PROG)
 MAIN=cmd/main.go
 COVERAGE_FILE=test/coverage.out
+COVERAGE_HTML_FILE=test/coverage.html
 TEST_REPORT=test/test-report.json
 
 .PHONY: all
@@ -30,11 +31,18 @@ run:
 
 .PHONY: test
 test:
+	@mkdir -p test
 	@go test -tags dev -cover -coverprofile=$(COVERAGE_FILE) ./...
 
 .PHONY: test-cicd
 test-cicd:
+	@mkdir -p test
 	@go test -tags dev -v -race -cover -coverprofile=$(COVERAGE_FILE) -json ./... > $(TEST_REPORT)
+
+.PHONY: test-race
+test-race:
+	@mkdir -p test
+	@go test -tags dev -race ./...
 
 .PHONY: benchmark
 benchmark:
@@ -42,7 +50,7 @@ benchmark:
 
 .PHONY: coverage
 coverage: test
-	@go tool cover -html=$(COVERAGE_FILE)
+	@go tool cover -html=$(COVERAGE_FILE) -o=$(COVERAGE_HTML_FILE)
 
 .PHONY: clean
 clean:

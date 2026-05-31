@@ -33,3 +33,4 @@ go.work.sum
 
 bin
 ovh-ddns.yaml
+test-report.json
