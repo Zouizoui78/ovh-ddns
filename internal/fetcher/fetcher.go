@@ -6,6 +6,8 @@ import (
 	"io"
 	"net"
 	"net/http"
+
+	"golang.org/x/sync/errgroup"
 )
 
 const PROVIDER = "https://ifconfig.me/ip"
@@ -27,15 +29,30 @@ func New() *Fetcher {
 	}
 }
 
-func (i *Fetcher) FetchIps() (*Ips, error) {
-	ipv4, err := fetchIp(i.v4Client)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get ipv4 address: %s", err)
-	}
+func (i *Fetcher) FetchIps(parentCtx context.Context) (*Ips, error) {
+	eg, ctx := errgroup.WithContext(parentCtx)
+	var ipv4, ipv6 net.IP
 
-	ipv6, err := fetchIp(i.v6Client)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get ipv6 address: %s", err)
+	eg.Go(func() error {
+		var err error
+		ipv4, err = fetchIp(ctx, i.v4Client)
+		if err != nil {
+			return fmt.Errorf("failed to get ipv4 address: %w", err)
+		}
+		return nil
+	})
+
+	eg.Go(func() error {
+		var err error
+		ipv6, err = fetchIp(ctx, i.v6Client)
+		if err != nil {
+			return fmt.Errorf("failed to get ipv6 address: %w", err)
+		}
+		return nil
+	})
+
+	if err := eg.Wait(); err != nil {
+		return nil, err
 	}
 
 	return &Ips{
@@ -54,8 +71,13 @@ func newTransportSpecificClient(transport string) *http.Client {
 	return &client
 }
 
-func fetchIp(c *http.Client) (net.IP, error) {
-	resp, err := c.Get(PROVIDER)
+func fetchIp(ctx context.Context, c *http.Client) (net.IP, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", PROVIDER, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -63,11 +85,11 @@ func fetchIp(c *http.Client) (net.IP, error) {
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read body: %s", err)
+		return nil, fmt.Errorf("failed to read body: %w", err)
 	}
 
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("ipv4 fetch: got status code %d. body: '%s'", resp.StatusCode, body)
+		return nil, fmt.Errorf("ip fetch: got status code %d. body: '%s'", resp.StatusCode, body)
 	}
 
 	return net.ParseIP(string(body)), nil

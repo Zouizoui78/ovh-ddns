@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"os"
 
@@ -16,6 +17,9 @@ var cmd = &cobra.Command{
 }
 
 func run(cmd *cobra.Command, args []string) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	cfg, err := config.LoadConfig(cmd)
 	if err != nil {
 		slog.Error("failed to load configuration", "error", err)
@@ -25,7 +29,7 @@ func run(cmd *cobra.Command, args []string) {
 	slog.Info("cfg", "domains", cfg.Domains)
 
 	fetcher := fetcher.New()
-	ips, err := fetcher.FetchIps()
+	ips, err := fetcher.FetchIps(ctx)
 	if err != nil {
 		slog.Error("failed to fetch ips", "err", err)
 	}
