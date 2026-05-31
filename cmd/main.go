@@ -32,9 +32,10 @@ func run(cmd *cobra.Command, args []string) {
 	ips, err := fetcher.FetchIps(ctx)
 	if err != nil {
 		slog.Error("failed to fetch ips", "err", err)
+		os.Exit(1)
 	}
 
-	slog.Info("addr", "ipv4", ips.Ipv4, "ipv6", ips.Ipv6)
+	slog.Info("addr", "ipv4", ips.V4, "ipv6", ips.V6)
 }
 
 func init() {

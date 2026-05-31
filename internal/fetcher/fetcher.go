@@ -7,15 +7,11 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/Zouizoui78/ovh-ddns/internal/ips"
 	"golang.org/x/sync/errgroup"
 )
 
 const PROVIDER = "https://ifconfig.me/ip"
-
-type Ips struct {
-	Ipv4 net.IP
-	Ipv6 net.IP
-}
 
 type Fetcher struct {
 	v4Client *http.Client
@@ -29,7 +25,7 @@ func New() *Fetcher {
 	}
 }
 
-func (i *Fetcher) FetchIps(parentCtx context.Context) (*Ips, error) {
+func (i *Fetcher) FetchIps(parentCtx context.Context) (*ips.Ips, error) {
 	eg, ctx := errgroup.WithContext(parentCtx)
 	var ipv4, ipv6 net.IP
 
@@ -55,9 +51,9 @@ func (i *Fetcher) FetchIps(parentCtx context.Context) (*Ips, error) {
 		return nil, err
 	}
 
-	return &Ips{
-		Ipv4: ipv4,
-		Ipv6: ipv6,
+	return &ips.Ips{
+		V4: ipv4,
+		V6: ipv6,
 	}, nil
 }
 
