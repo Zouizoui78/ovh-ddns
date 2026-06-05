@@ -16,6 +16,7 @@ const (
 	CONFIG_PATH_ENV_VAR = "OVH_DDNS_CONFIG_PATH"
 
 	LOG_LEVEL_FLAG    = "log-level"
+	DRY_RUN_FLAG      = "dry-run"
 	DOMAINS_FLAG      = "domains"
 	APP_KEY_FLAG      = "app-key"
 	APP_SECRET_FLAG   = "app-secret"
@@ -30,6 +31,7 @@ type Auth struct {
 
 type Config struct {
 	LogLevel string   `mapstructure:"log_level"`
+	DryRun   bool     `mapstructure:"dry_run"`
 	Domains  []string `mapstructure:"domains"`
 	Auth     Auth     `mapstructure:"auth"`
 }
@@ -44,6 +46,7 @@ func configInit(cmd *cobra.Command) {
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	viper.BindPFlag("log_level", cmd.PersistentFlags().Lookup(LOG_LEVEL_FLAG))
+	viper.BindPFlag("dry_run", cmd.PersistentFlags().Lookup(DRY_RUN_FLAG))
 	viper.BindPFlag("domains", cmd.PersistentFlags().Lookup(DOMAINS_FLAG))
 	viper.BindPFlag("auth.app_key", cmd.PersistentFlags().Lookup(APP_KEY_FLAG))
 	viper.BindPFlag("auth.app_secret", cmd.PersistentFlags().Lookup(APP_SECRET_FLAG))

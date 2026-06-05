@@ -9,6 +9,7 @@ import (
 	"github.com/Zouizoui78/ovh-ddns/internal/config"
 	"github.com/Zouizoui78/ovh-ddns/internal/fetcher"
 	"github.com/Zouizoui78/ovh-ddns/internal/ovh"
+	"github.com/Zouizoui78/ovh-ddns/internal/updater"
 	"github.com/spf13/cobra"
 )
 
@@ -47,28 +48,20 @@ func run(cmd *cobra.Command, args []string) {
 	defer cancel()
 
 	fetcher := fetcher.New()
-	ips, err := fetcher.FetchIps(ctx)
-	if err != nil {
-		slog.Error("failed to fetch ips", "err", err)
-		os.Exit(1)
-	}
-
 	ovh, err := ovh.New(cfg.Auth)
 	if err != nil {
 		slog.Error("failed to create ovh client", "err", err)
 	}
-
-	ovhIps, err := ovh.GetDomainsIps(ctx, cfg.Domains)
+	updater := updater.New(fetcher, ovh, cfg.Domains)
+	err = updater.Update(ctx, cfg.DryRun)
 	if err != nil {
-		slog.Error("failed to get ips from ovh", "err", err)
+		slog.Error(err.Error())
 	}
-
-	slog.Info("addr from provider", "ipv4", ips.V4, "ipv6", ips.V6)
-	slog.Info("addr from ovh", "map", ovhIps)
 }
 
 func init() {
 	cmd.PersistentFlags().String(config.LOG_LEVEL_FLAG, "warn", "Log level. Can be debug, info, warn or error")
+	cmd.PersistentFlags().Bool(config.DRY_RUN_FLAG, false, "If enabled, DNS zones are not updated")
 	cmd.PersistentFlags().String(config.DOMAINS_FLAG, "", "Domains for which to set the IP addresses")
 	cmd.PersistentFlags().String(config.APP_KEY_FLAG, "", "OVH application key")
 	cmd.PersistentFlags().String(config.APP_SECRET_FLAG, "", "OVH application secret")
