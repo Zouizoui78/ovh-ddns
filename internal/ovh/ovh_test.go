@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"strings"
 	"testing"
 
 	"github.com/Zouizoui78/ovh-ddns/internal/ovh/dto"
@@ -82,12 +81,13 @@ func TestGetDomainsIpsReturnsErrorWhenRecordMissing(t *testing.T) {
 	}
 
 	ovh := NewFromClient(client)
-	_, err := ovh.GetDomainsIps(context.Background(), []string{"example.com"})
-	if err == nil {
-		t.Fatal("expected an error, got nil")
+	ips, err := ovh.GetDomainsIps(context.Background(), []string{"example.com"})
+	if err != nil {
+		t.Fatalf("expected no error, got %s", err)
 	}
 
-	if !strings.Contains(err.Error(), "there is no A record") {
-		t.Fatalf("unexpected error: %v", err)
+	v4 := ips["example.com"].V4
+	if v4 != nil {
+		t.Fatalf("expected no A record, got %s", v4)
 	}
 }

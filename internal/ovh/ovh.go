@@ -2,6 +2,7 @@ package ovh
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -71,23 +72,20 @@ func (ovh *Ovh) getDomainIps(parentCtx context.Context, domain string) (*ips.Ips
 	eg, ctx := errgroup.WithContext(parentCtx)
 	var v4, v6 net.IP
 
-	eg.Go(func() error {
-		var err error
-		v4, err = ovh.getARecordTarget(ctx, domain)
-		if err != nil {
-			return err
+	type recordGetter = func(ctx context.Context, domain string) (net.IP, error)
+	task := func(ip *net.IP, g recordGetter) func() error {
+		return func() error {
+			var err error
+			*ip, err = g(ctx, domain)
+			if err != nil && !errors.Is(err, ErrNoRecord) {
+				return err
+			}
+			return nil
 		}
-		return nil
-	})
+	}
 
-	eg.Go(func() error {
-		var err error
-		v6, err = ovh.getAAAARecordTarget(ctx, domain)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
+	eg.Go(task(&v4, ovh.getARecordTarget))
+	eg.Go(task(&v6, ovh.getAAAARecordTarget))
 
 	if err := eg.Wait(); err != nil {
 		return nil, err
@@ -116,7 +114,7 @@ func (ovh *Ovh) getRecordTarget(ctx context.Context, domain string, recordType s
 	}
 
 	if len(ids) == 0 {
-		return nil, fmt.Errorf("there is no %s record for domain %s", recordType, domain)
+		return nil, ErrNoRecord
 	}
 	if len(ids) > 1 {
 		slog.Warn("multiple dns record, picking first one", "domain", domain, "type", recordType)
