@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/Zouizoui78/ovh-ddns/internal/fetcher"
-	"github.com/Zouizoui78/ovh-ddns/internal/ips"
+	"github.com/Zouizoui78/ovh-ddns/internal/model"
 	"github.com/Zouizoui78/ovh-ddns/internal/ovh"
 	"golang.org/x/sync/errgroup"
 )
@@ -14,7 +14,7 @@ import (
 type Updater struct {
 	domains []string
 
-	previousIps *ips.Ips
+	previousIps model.Ips
 
 	fetcher *fetcher.Fetcher
 	ovh     *ovh.Ovh
@@ -39,22 +39,27 @@ func (u *Updater) Update(ctx context.Context, dryRun bool) error {
 	}
 	slog.Debug("current public IPs", "v4", currentIps.V4, "v6", currentIps.V6)
 
-	if u.previousIps != nil && currentIps.Equal(u.previousIps) {
+	isPreviousIpsNil := u.previousIps.V4.IsUnspecified() && u.previousIps.V6.IsUnspecified()
+	if isPreviousIpsNil && currentIps.Equal(u.previousIps) {
 		slog.Info("public IPs have not changed, skipping dns update")
 		return nil
 	}
 	u.previousIps = currentIps
 
-	slog.Debug("fetching current dns zones IPs")
-	ovhIps, err := u.ovh.GetDomainsIps(ctx, u.domains)
+	slog.Debug("fetching current dns zones")
+	zones, err := u.ovh.GetDnsZones(ctx, u.domains)
 	if err != nil {
 		return err
 	}
-	slog.Debug("current dns zones IPs", "ips", ovhIps)
+	slog.Debug("current dns zones", "zone", zones)
 
 	eg, _ := errgroup.WithContext(ctx)
-	for domain, ips := range ovhIps {
-		if ips.Equal(currentIps) {
+	for domain, zone := range zones {
+		zoneIps := model.Ips{
+			V4: zone.A.Target,
+			V6: zone.AAAA.Target,
+		}
+		if currentIps.Equal(zoneIps) {
 			slog.Info("up to date IPs in DNS, skipping update", "domain", domain)
 			continue
 		}
@@ -65,7 +70,7 @@ func (u *Updater) Update(ctx context.Context, dryRun bool) error {
 		}
 
 		eg.Go(func() error {
-			slog.Info("updating dns zone", "zone", domain, "ips", ips)
+			slog.Info("updating dns zone", "zone", domain, "ips", zoneIps)
 			return nil
 		})
 	}

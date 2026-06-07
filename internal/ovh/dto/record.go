@@ -1,10 +1,27 @@
 package dto
 
+import (
+	"net"
+
+	"github.com/Zouizoui78/ovh-ddns/internal/model"
+)
+
 type Record struct {
-	FieldType string `json:"fieldType"`
-	Id        int    `json:"id"`
-	SubDomain string `json:"subDomain"`
-	Target    string `json:"target"`
-	Ttl       int    `json:"ttl"`
-	Zone      string `json:"zone"`
+	Id        int              `json:"id"`
+	FieldType model.RecordType `json:"fieldType"`
+	SubDomain string           `json:"subDomain,omitempty"`
+	Target    net.IP           `json:"target"`
+	Ttl       int              `json:"ttl,omitempty"`
+	Zone      string           `json:"zone"`
+}
+
+func (r Record) ToModel() model.Record {
+	return model.Record{
+		Id:         r.Id,
+		RecordType: r.FieldType,
+		SubDomain:  r.SubDomain,
+		Target:     r.Target,
+		Ttl:        r.Ttl,
+		Zone:       r.Zone,
+	}
 }

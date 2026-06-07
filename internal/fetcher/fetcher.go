@@ -7,7 +7,7 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/Zouizoui78/ovh-ddns/internal/ips"
+	"github.com/Zouizoui78/ovh-ddns/internal/model"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -25,7 +25,7 @@ func New() *Fetcher {
 	}
 }
 
-func (i *Fetcher) FetchIps(parentCtx context.Context) (*ips.Ips, error) {
+func (i *Fetcher) FetchIps(parentCtx context.Context) (model.Ips, error) {
 	eg, ctx := errgroup.WithContext(parentCtx)
 	var ipv4, ipv6 net.IP
 
@@ -48,10 +48,10 @@ func (i *Fetcher) FetchIps(parentCtx context.Context) (*ips.Ips, error) {
 	})
 
 	if err := eg.Wait(); err != nil {
-		return nil, err
+		return model.Ips{}, err
 	}
 
-	return &ips.Ips{
+	return model.Ips{
 		V4: ipv4,
 		V6: ipv6,
 	}, nil

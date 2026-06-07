@@ -1,4 +1,4 @@
-package ips
+package model
 
 import (
 	"net"
@@ -17,11 +17,11 @@ func TestIpsEqual(t *testing.T) {
 		V6: net.ParseIP("2002:db8::68"),
 	}
 
-	if !a.Equal(&b) {
+	if !a.Equal(b) {
 		t.Fatal("IPs should be equal")
 	}
 
-	if a.Equal(&c) {
+	if a.Equal(c) {
 		t.Fatal("IPs should not be equal")
 	}
 }
