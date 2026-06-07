@@ -131,7 +131,7 @@ func TestPostRecord(t *testing.T) {
 		responses: map[string]any{},
 	})
 
-	r, err := ovh.postARecord(context.Background(), "example.com", net.ParseIP("1.2.3.4"))
+	r, err := ovh.PostARecord(context.Background(), "example.com", net.ParseIP("1.2.3.4"))
 	if err != nil {
 		t.Errorf("expected no error, got %v", err)
 	}
@@ -139,7 +139,7 @@ func TestPostRecord(t *testing.T) {
 		t.Errorf("expected id 0, got %v", r.Id)
 	}
 
-	r, err = ovh.postAAAARecord(context.Background(), "example.com", net.ParseIP("2001:db8::1"))
+	r, err = ovh.PostAAAARecord(context.Background(), "example.com", net.ParseIP("2001:db8::1"))
 	if err != nil {
 		t.Errorf("expected no error, got %v", err)
 	}
