@@ -4,10 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net"
+	"os"
+	"path"
+	"strconv"
 	"testing"
 
-	"github.com/Zouizoui78/ovh-ddns/internal/model"
+	"github.com/Zouizoui78/ovh-ddns/internal/ovh/dto"
 )
 
 type fakeClient struct {
@@ -37,33 +41,34 @@ func (f *fakeClient) PostWithContext(ctx context.Context, url string, reqBody, r
 		return fmt.Errorf("record already present")
 	}
 
-	f.responses[url] = reqBody.(model.Record)
+	d := reqBody.(dto.RecordPost)
+	res, ok := resType.(*dto.Record)
+	if !ok {
+		panic("expected resType to be a *dto.Record")
+	}
+
+	*res = dto.Record{
+		Id:        len(f.responses),
+		FieldType: d.FieldType,
+		SubDomain: d.SubDomain,
+		Target:    d.Target,
+		Ttl:       d.Ttl,
+	}
+	f.responses[path.Join(url, strconv.FormatInt(int64(res.Id), 10))] = res
 	return nil
 }
 
-func TestGetDomainsIps(t *testing.T) {
+func TestGetDnsZones(t *testing.T) {
 	client := &fakeClient{
 		responses: map[string]any{
-			"/domain/zone/example.com/record?fieldType=A": []int{1},
-			"/domain/zone/example.com/record/1": model.Record{
-				Target:     net.ParseIP("1.2.3.4"),
-				RecordType: model.RecordTypeA,
-			},
+			"/domain/zone/example.com/record?fieldType=A":    []int{1},
+			"/domain/zone/example.com/record/1":              newARecordDto("1.2.3.4"),
 			"/domain/zone/example.com/record?fieldType=AAAA": []int{2},
-			"/domain/zone/example.com/record/2": model.Record{
-				Target:     net.ParseIP("2001:db8::1"),
-				RecordType: model.RecordTypeAAAA,
-			},
-			"/domain/zone/example.net/record?fieldType=A": []int{3},
-			"/domain/zone/example.net/record/3": model.Record{
-				Target:     net.ParseIP("5.6.7.8"),
-				RecordType: model.RecordTypeA,
-			},
+			"/domain/zone/example.com/record/2":              newAAAARecordDto("2001:db8::1"),
+			"/domain/zone/example.net/record?fieldType=A":    []int{3},
+			"/domain/zone/example.net/record/3":              newARecordDto("5.6.7.8"),
 			"/domain/zone/example.net/record?fieldType=AAAA": []int{4},
-			"/domain/zone/example.net/record/4": model.Record{
-				Target:     net.ParseIP("2001:db8::2"),
-				RecordType: model.RecordTypeAAAA,
-			},
+			"/domain/zone/example.net/record/4":              newAAAARecordDto("2001:db8::2"),
 		},
 	}
 
@@ -96,26 +101,65 @@ func TestGetDomainsIps(t *testing.T) {
 	}
 }
 
-func TestGetDomainsIpsReturnsErrorWhenRecordMissing(t *testing.T) {
+func TestGetDnsZonesReturnNilAddrWhenNoRecord(t *testing.T) {
 	client := &fakeClient{
 		responses: map[string]any{
 			"/domain/zone/example.com/record?fieldType=A":    []int{},
 			"/domain/zone/example.com/record?fieldType=AAAA": []int{2},
-			"/domain/zone/example.com/record/2": model.Record{
-				Target:     net.ParseIP("2001:db8::1"),
-				RecordType: model.RecordTypeAAAA,
-			},
+			"/domain/zone/example.com/record/2":              newAAAARecordDto("2001:db8::1"),
 		},
 	}
 
 	ovh := NewFromClient(client)
-	ips, err := ovh.GetDnsZones(context.Background(), []string{"example.com"})
+	zones, err := ovh.GetDnsZones(context.Background(), []string{"example.com"})
 	if err != nil {
 		t.Fatalf("expected no error, got %s", err)
 	}
 
-	v4 := ips["example.com"].A.Target
-	if v4 != nil {
-		t.Fatalf("expected no A record, got %s", v4)
+	if zones["example.com"].A != nil {
+		t.Fatalf("expected no A record")
+	}
+}
+
+func TestPostRecord(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
+	slog.SetDefault(logger)
+
+	ovh := NewFromClient(&fakeClient{
+		responses: map[string]any{},
+	})
+
+	r, err := ovh.postARecord(context.Background(), "example.com", net.ParseIP("1.2.3.4"))
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+	if r.Id != 0 {
+		t.Errorf("expected id 0, got %v", r.Id)
+	}
+
+	r, err = ovh.postAAAARecord(context.Background(), "example.com", net.ParseIP("2001:db8::1"))
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+	if r.Id != 1 {
+		t.Errorf("expected id 1, got %v", r.Id)
+	}
+}
+
+// Helpers
+
+func newARecordDto(target string) dto.Record {
+	return dto.Record{
+		Target:    net.ParseIP(target),
+		FieldType: "A",
+	}
+}
+
+func newAAAARecordDto(target string) dto.Record {
+	return dto.Record{
+		Target:    net.ParseIP(target),
+		FieldType: "AAAA",
 	}
 }

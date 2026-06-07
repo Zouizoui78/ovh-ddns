@@ -16,8 +16,8 @@ type RecordPost struct {
 func FromModel(r model.Record) RecordPost {
 	return RecordPost{
 		FieldType: r.RecordType.String(),
-		SubDomain: r.SubDomain,
+		SubDomain: r.SubDomain, // optional
 		Target:    r.Target,
-		Ttl:       r.Ttl,
+		Ttl:       r.Ttl, // optional
 	}
 }

@@ -2,7 +2,6 @@ package ovh
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -47,7 +46,7 @@ func NewFromClient(client ovhClient) *Ovh {
 
 func (ovh *Ovh) GetDnsZones(parentCtx context.Context, domains []string) (map[string]model.Zone, error) {
 	eg, ctx := errgroup.WithContext(parentCtx)
-	ret := make(map[string]model.Zone)
+	ret := make(map[string]model.Zone, len(domains))
 	var mu sync.Mutex
 
 	for _, domain := range domains {
@@ -72,10 +71,10 @@ func (ovh *Ovh) GetDnsZones(parentCtx context.Context, domains []string) (map[st
 
 func (ovh *Ovh) getDnsZone(parentCtx context.Context, domain string) (model.Zone, error) {
 	eg, ctx := errgroup.WithContext(parentCtx)
-	var a, aaaa model.Record
+	var a, aaaa *model.Record
 
-	type recordGetter = func(ctx context.Context, domain string) (model.Record, error)
-	task := func(r *model.Record, g recordGetter) func() error {
+	type recordGetter = func(ctx context.Context, domain string) (*model.Record, error)
+	task := func(r **model.Record, g recordGetter) func() error {
 		return func() error {
 			var err error
 			*r, err = g(ctx, domain)
@@ -86,8 +85,8 @@ func (ovh *Ovh) getDnsZone(parentCtx context.Context, domain string) (model.Zone
 		}
 	}
 
-	eg.Go(task(&a, ovh.getARecordTarget))
-	eg.Go(task(&aaaa, ovh.getAAAARecordTarget))
+	eg.Go(task(&a, ovh.getARecord))
+	eg.Go(task(&aaaa, ovh.getAAAARecord))
 
 	if err := eg.Wait(); err != nil {
 		return model.Zone{}, err
@@ -99,7 +98,7 @@ func (ovh *Ovh) getDnsZone(parentCtx context.Context, domain string) (model.Zone
 	}, nil
 }
 
-func (ovh *Ovh) getRecord(ctx context.Context, domain string, recordType string) (model.Record, error) {
+func (ovh *Ovh) getRecord(ctx context.Context, domain string, recordType string) (*model.Record, error) {
 	var ids []int
 	err := ovh.client.GetWithContext(
 		ctx,
@@ -107,7 +106,7 @@ func (ovh *Ovh) getRecord(ctx context.Context, domain string, recordType string)
 		&ids,
 	)
 	if err != nil {
-		return model.Record{}, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"failed to get id of %s record for domain %s: %w",
 			recordType,
 			domain,
@@ -116,21 +115,21 @@ func (ovh *Ovh) getRecord(ctx context.Context, domain string, recordType string)
 	}
 
 	if len(ids) == 0 {
-		return model.Record{}, ErrNoRecord
+		return nil, ErrNoRecord
 	}
 	if len(ids) > 1 {
 		slog.Warn("multiple dns record, picking first one", "domain", domain, "type", recordType)
 	}
 
-	var record dto.Record
+	var dto dto.Record
 	err = ovh.client.GetWithContext(
 		ctx,
 		fmt.Sprintf("/domain/zone/%s/record/%d", domain, ids[0]),
-		&record,
+		&dto,
 	)
 
 	if err != nil {
-		return model.Record{}, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"failed to get %s record for domain %s: %w",
 			recordType,
 			domain,
@@ -138,44 +137,45 @@ func (ovh *Ovh) getRecord(ctx context.Context, domain string, recordType string)
 		)
 	}
 
-	return record.ToModel(), nil
+	ret := dto.ToModel()
+	return &ret, nil
 }
 
-func (ovh *Ovh) postRecord(ctx context.Context, domain string, recordType string, target net.IP) error {
-	json, err := json.Marshal(dto.RecordPost{
-		FieldType: recordType,
-		Target:    target,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to marshal POST record dto: %w", err)
-	}
-
+func (ovh *Ovh) postRecord(ctx context.Context, r model.Record) (model.Record, error) {
 	var record dto.Record
-	err = ovh.client.PostWithContext(
+	err := ovh.client.PostWithContext(
 		ctx,
-		fmt.Sprintf("/domain/zone/%s/record", domain),
-		json,
+		fmt.Sprintf("/domain/zone/%s/record", r.Zone),
+		dto.FromModel(r),
 		&record,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to POST record: %w", err)
+		return model.Record{}, fmt.Errorf("failed to POST record: %w", err)
 	}
 
-	return nil
+	return record.ToModel(), nil
 }
 
-func (ovh *Ovh) getARecordTarget(ctx context.Context, domain string) (model.Record, error) {
+func (ovh *Ovh) getARecord(ctx context.Context, domain string) (*model.Record, error) {
 	return ovh.getRecord(ctx, domain, "A")
 }
 
-func (ovh *Ovh) getAAAARecordTarget(ctx context.Context, domain string) (model.Record, error) {
+func (ovh *Ovh) getAAAARecord(ctx context.Context, domain string) (*model.Record, error) {
 	return ovh.getRecord(ctx, domain, "AAAA")
 }
 
-func (ovh *Ovh) postARecord(ctx context.Context, domain string, target net.IP) error {
-	return ovh.postRecord(ctx, domain, "A", target)
+func (ovh *Ovh) postARecord(ctx context.Context, domain string, target net.IP) (model.Record, error) {
+	return ovh.postRecord(ctx, model.Record{
+		Zone:       domain,
+		RecordType: model.RecordTypeA,
+		Target:     target,
+	})
 }
 
-func (ovh *Ovh) postAAAARecord(ctx context.Context, domain string, target net.IP) error {
-	return ovh.postRecord(ctx, domain, "AAAA", target)
+func (ovh *Ovh) postAAAARecord(ctx context.Context, domain string, target net.IP) (model.Record, error) {
+	return ovh.postRecord(ctx, model.Record{
+		Zone:       domain,
+		RecordType: model.RecordTypeAAAA,
+		Target:     target,
+	})
 }

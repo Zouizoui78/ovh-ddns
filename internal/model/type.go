@@ -27,6 +27,6 @@ func RecordTypeFromString(r string) RecordType {
 	case "AAAA":
 		return RecordTypeAAAA
 	default:
-		panic(fmt.Errorf("unhandled record type: %s", r))
+		panic(fmt.Errorf("unhandled record type: '%s'", r))
 	}
 }
