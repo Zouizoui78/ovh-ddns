@@ -48,12 +48,12 @@ func run(cmd *cobra.Command, args []string) {
 	defer cancel()
 
 	fetcher := fetcher.New()
-	ovh, err := ovh.New(cfg.Auth)
+	ovh, err := ovh.New(cfg.Auth, cfg.DryRun)
 	if err != nil {
 		slog.Error("failed to create ovh client", "err", err)
 	}
 	updater := updater.New(fetcher, ovh, cfg.Domains)
-	err = updater.Update(ctx, cfg.DryRun)
+	err = updater.Update(ctx)
 	if err != nil {
 		slog.Error(err.Error())
 	}

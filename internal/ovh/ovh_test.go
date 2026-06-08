@@ -4,9 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"net"
-	"os"
 	"path"
 	"strconv"
 	"testing"
@@ -55,6 +53,31 @@ func (f *fakeClient) PostWithContext(ctx context.Context, url string, reqBody, r
 		Ttl:       d.Ttl,
 	}
 	f.responses[path.Join(url, strconv.FormatInt(int64(res.Id), 10))] = res
+	return nil
+}
+
+func (f *fakeClient) PutWithContext(ctx context.Context, url string, reqBody, resType any) error {
+	value, ok := f.responses[url]
+	if !ok {
+		return fmt.Errorf("record not found")
+	}
+
+	oldValue, ok := value.(dto.Record)
+	if !ok {
+		return fmt.Errorf("expected Record dto")
+	}
+
+	newValue, ok := value.(dto.RecordPut)
+	if !ok {
+		return fmt.Errorf("expected RecordPut dto")
+	}
+
+	oldValue.SubDomain = newValue.SubDomain
+	oldValue.Target = newValue.Target
+	oldValue.Ttl = newValue.Ttl
+
+	f.responses[url] = oldValue
+
 	return nil
 }
 
@@ -122,11 +145,6 @@ func TestGetDnsZonesReturnNilAddrWhenNoRecord(t *testing.T) {
 }
 
 func TestPostRecord(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	}))
-	slog.SetDefault(logger)
-
 	ovh := NewFromClient(&fakeClient{
 		responses: map[string]any{},
 	})

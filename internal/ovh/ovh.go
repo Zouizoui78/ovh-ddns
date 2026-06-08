@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math/rand/v2"
 	"net"
 	"sync"
 
@@ -18,13 +19,15 @@ import (
 type ovhClient interface {
 	GetWithContext(ctx context.Context, url string, resType any) error
 	PostWithContext(ctx context.Context, url string, reqBody, resType any) error
+	PutWithContext(ctx context.Context, url string, reqBody, resType any) error
 }
 
 type Ovh struct {
 	client ovhClient
+	dryRun bool
 }
 
-func New(auth config.Auth) (*Ovh, error) {
+func New(auth config.Auth, dryRun bool) (*Ovh, error) {
 	client, err := ovhapi.NewClient(
 		"ovh-eu",
 		auth.AppKey,
@@ -70,11 +73,22 @@ func (ovh *Ovh) GetDnsZones(parentCtx context.Context, zoneNames []string) (map[
 }
 
 func (ovh *Ovh) PostRecord(ctx context.Context, r model.Record) (model.Record, error) {
+	if ovh.dryRun {
+		slog.Warn(
+			"dry run: skipping post",
+			"zone", r.Zone,
+			"recordType", r.RecordType,
+			"target", r.Target,
+		)
+		r.Id = rand.Int()
+		return r, nil
+	}
+
 	var record dto.Record
 	err := ovh.client.PostWithContext(
 		ctx,
 		fmt.Sprintf("/domain/zone/%s/record", r.Zone),
-		dto.FromModel(r),
+		dto.NewRecordPostDtoFromModel(r),
 		&record,
 	)
 	if err != nil {
@@ -100,7 +114,39 @@ func (ovh *Ovh) PostAAAARecord(ctx context.Context, zoneName string, target net.
 	})
 }
 
+func (ovh *Ovh) PutRecord(ctx context.Context, r model.Record) error {
+	if ovh.dryRun {
+		slog.Warn(
+			"dry run: skipping put",
+			"zone", r.Zone,
+			"recordType", r.RecordType,
+			"target", r.Target,
+		)
+		return nil
+	}
+
+	err := ovh.client.PutWithContext(
+		ctx,
+		fmt.Sprintf("/domain/zone/%s/record/%d", r.Zone, r.Id),
+		dto.NewRecordPutDtoFromModel(r),
+		nil,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update dns record: %w", err)
+	}
+
+	return nil
+}
+
 func (ovh *Ovh) Refresh(ctx context.Context, zoneName string) error {
+	if ovh.dryRun {
+		slog.Warn(
+			"dry run: skipping refresh",
+			"zone", zoneName,
+		)
+		return nil
+	}
+
 	err := ovh.client.PostWithContext(
 		ctx,
 		fmt.Sprintf("/domain/zone/%s/refresh", zoneName),

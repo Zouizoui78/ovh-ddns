@@ -2,7 +2,9 @@ package updater
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"net"
 	"time"
 
 	"github.com/Zouizoui78/ovh-ddns/internal/fetcher"
@@ -30,7 +32,7 @@ func New(f *fetcher.Fetcher, o *ovh.Ovh, domains []string) *Updater {
 	}
 }
 
-func (u *Updater) Update(ctx context.Context, dryRun bool) error {
+func (u *Updater) Update(ctx context.Context) error {
 	slog.Info("starting zones update")
 	slog.Debug("fetching current public IPs")
 	currentIps, err := u.fetcher.FetchIps(ctx)
@@ -64,19 +66,102 @@ func (u *Updater) Update(ctx context.Context, dryRun bool) error {
 			continue
 		}
 
-		if dryRun {
-			slog.Info("dry run: skipping dns zone update", "zone", domain)
-			continue
-		}
-
 		eg.Go(func() error {
 			slog.Info("updating dns zone", "zone", domain, "ips", zoneIps)
+			u.updateZone(ctx, domain, currentIps, zone)
 			return nil
 		})
 	}
 
+	return eg.Wait()
+}
+
+func (u *Updater) updateZone(ctx context.Context, domain string, ips model.Ips, zone model.Zone) error {
+	eg, egCtx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		err := u.updateRecord(
+			egCtx,
+			model.RecordTypeA,
+			domain,
+			ips.V4,
+			zone.A,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to update A record: %w", err)
+		}
+		return nil
+	})
+	eg.Go(func() error {
+		err := u.updateRecord(
+			egCtx,
+			model.RecordTypeAAAA,
+			domain,
+			ips.V6,
+			zone.AAAA,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to update AAAA record: %w", err)
+		}
+		return nil
+	})
+
 	if err := eg.Wait(); err != nil {
-		return err
+		return fmt.Errorf("skipping '%s' zone refresh because of error during zone update: %w", domain, err)
+	}
+
+	return u.ovh.Refresh(ctx, domain)
+}
+
+func (u *Updater) updateRecord(ctx context.Context, recordType model.RecordType, domain string, ip net.IP, r *model.Record) error {
+	if r == nil {
+		slog.Debug(
+			"posting new record",
+			"zone", domain,
+			"ip", ip,
+			"record_type", model.RecordTypeA.String(),
+		)
+
+		var r model.Record
+		var err error
+
+		switch recordType {
+		case model.RecordTypeA:
+			r, err = u.ovh.PostARecord(
+				ctx,
+				domain,
+				ip,
+			)
+		case model.RecordTypeAAAA:
+			r, err = u.ovh.PostAAAARecord(
+				ctx,
+				domain,
+				ip,
+			)
+		}
+		if err != nil {
+			return fmt.Errorf("failed to post new record: %w", err)
+		}
+
+		slog.Info(
+			"new record POST successful",
+			"zone", domain,
+			"ip", ip,
+			"record_type", model.RecordTypeA.String(),
+			"id", r.Id,
+		)
+	} else {
+		slog.Info(
+			"updating record",
+			"zone", domain,
+			"ip", ip,
+			"record_type", model.RecordTypeA.String(),
+		)
+
+		r.Target = ip
+		err := u.ovh.PutRecord(ctx, *r)
+		if err != nil {
+			return fmt.Errorf("failed to update record: %w", err)
+		}
 	}
 
 	return nil
