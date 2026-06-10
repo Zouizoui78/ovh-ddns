@@ -95,7 +95,7 @@ func TestGetDnsZones(t *testing.T) {
 		},
 	}
 
-	ovh := NewFromClient(client)
+	ovh := NewFromClient(client, false)
 	got, err := ovh.GetDnsZones(context.Background(), []string{"example.com", "example.net"})
 	if err != nil {
 		t.Fatalf("GetDomainsIps returned error: %v", err)
@@ -133,7 +133,7 @@ func TestGetDnsZonesReturnNilAddrWhenNoRecord(t *testing.T) {
 		},
 	}
 
-	ovh := NewFromClient(client)
+	ovh := NewFromClient(client, false)
 	zones, err := ovh.GetDnsZones(context.Background(), []string{"example.com"})
 	if err != nil {
 		t.Fatalf("expected no error, got %s", err)
@@ -147,7 +147,7 @@ func TestGetDnsZonesReturnNilAddrWhenNoRecord(t *testing.T) {
 func TestPostRecord(t *testing.T) {
 	ovh := NewFromClient(&fakeClient{
 		responses: map[string]any{},
-	})
+	}, false)
 
 	r, err := ovh.PostARecord(context.Background(), "example.com", net.ParseIP("1.2.3.4"))
 	if err != nil {

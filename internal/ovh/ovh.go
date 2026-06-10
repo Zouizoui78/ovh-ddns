@@ -2,6 +2,7 @@ package ovh
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -38,12 +39,13 @@ func New(auth config.Auth, dryRun bool) (*Ovh, error) {
 		return nil, fmt.Errorf("failed to instantiate ovh client: %w", err)
 	}
 
-	return NewFromClient(client), nil
+	return NewFromClient(client, dryRun), nil
 }
 
-func NewFromClient(client ovhClient) *Ovh {
+func NewFromClient(client ovhClient, dryRun bool) *Ovh {
 	return &Ovh{
 		client: client,
+		dryRun: dryRun,
 	}
 }
 
@@ -73,12 +75,16 @@ func (ovh *Ovh) GetDnsZones(parentCtx context.Context, zoneNames []string) (map[
 }
 
 func (ovh *Ovh) PostRecord(ctx context.Context, r model.Record) (model.Record, error) {
+	d := dto.NewRecordPostDtoFromModel(r)
+
 	if ovh.dryRun {
+		json, _ := json.Marshal(d)
 		slog.Warn(
 			"dry run: skipping post",
 			"zone", r.Zone,
 			"recordType", r.RecordType,
 			"target", r.Target,
+			"dto", json,
 		)
 		r.Id = rand.Int()
 		return r, nil
@@ -88,7 +94,7 @@ func (ovh *Ovh) PostRecord(ctx context.Context, r model.Record) (model.Record, e
 	err := ovh.client.PostWithContext(
 		ctx,
 		fmt.Sprintf("/domain/zone/%s/record", r.Zone),
-		dto.NewRecordPostDtoFromModel(r),
+		d,
 		&record,
 	)
 	if err != nil {
@@ -115,12 +121,17 @@ func (ovh *Ovh) PostAAAARecord(ctx context.Context, zoneName string, target net.
 }
 
 func (ovh *Ovh) PutRecord(ctx context.Context, r model.Record) error {
+	d := dto.NewRecordPutDtoFromModel(r)
+
 	if ovh.dryRun {
+		json, _ := json.Marshal(d)
+
 		slog.Warn(
 			"dry run: skipping put",
 			"zone", r.Zone,
 			"recordType", r.RecordType,
 			"target", r.Target,
+			"dto", json,
 		)
 		return nil
 	}
@@ -128,7 +139,7 @@ func (ovh *Ovh) PutRecord(ctx context.Context, r model.Record) error {
 	err := ovh.client.PutWithContext(
 		ctx,
 		fmt.Sprintf("/domain/zone/%s/record/%d", r.Zone, r.Id),
-		dto.NewRecordPutDtoFromModel(r),
+		d,
 		nil,
 	)
 	if err != nil {
