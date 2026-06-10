@@ -56,8 +56,6 @@ func (u *Updater) Update(ctx context.Context) error {
 
 	eg, _ := errgroup.WithContext(ctx)
 	for domain, zone := range zones {
-		slog.Debug("current zone state", "A", *zone.A, "AAAA", *zone.AAAA)
-
 		if zone.A != nil && zone.AAAA != nil {
 			zoneIps := model.Ips{
 				V4: zone.A.Target,
