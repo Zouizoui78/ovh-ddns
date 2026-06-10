@@ -53,21 +53,24 @@ func (u *Updater) Update(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	slog.Debug("current dns zones", "zone", zones)
 
 	eg, _ := errgroup.WithContext(ctx)
 	for domain, zone := range zones {
-		zoneIps := model.Ips{
-			V4: zone.A.Target,
-			V6: zone.AAAA.Target,
-		}
-		if currentIps.Equal(zoneIps) {
-			slog.Info("up to date IPs in DNS, skipping update", "domain", domain)
-			continue
+		slog.Debug("current zone state", "A", *zone.A, "AAAA", *zone.AAAA)
+
+		if zone.A != nil && zone.AAAA != nil {
+			zoneIps := model.Ips{
+				V4: zone.A.Target,
+				V6: zone.AAAA.Target,
+			}
+			if currentIps.Equal(zoneIps) {
+				slog.Info("up to date IPs in DNS, skipping update", "domain", domain)
+				continue
+			}
 		}
 
 		eg.Go(func() error {
-			slog.Info("updating dns zone", "zone", domain, "ips", zoneIps)
+			slog.Info("updating dns zone", "zone", domain, "ips", currentIps)
 			u.updateZone(ctx, domain, currentIps, zone)
 			return nil
 		})
@@ -118,7 +121,7 @@ func (u *Updater) updateRecord(ctx context.Context, recordType model.RecordType,
 			"posting new record",
 			"zone", domain,
 			"ip", ip,
-			"record_type", model.RecordTypeA.String(),
+			"record_type", recordType.String(),
 		)
 
 		var r model.Record
@@ -146,7 +149,7 @@ func (u *Updater) updateRecord(ctx context.Context, recordType model.RecordType,
 			"new record POST successful",
 			"zone", domain,
 			"ip", ip,
-			"record_type", model.RecordTypeA.String(),
+			"record_type", recordType.String(),
 			"id", r.Id,
 		)
 	} else {
@@ -154,7 +157,7 @@ func (u *Updater) updateRecord(ctx context.Context, recordType model.RecordType,
 			"updating record",
 			"zone", domain,
 			"ip", ip,
-			"record_type", model.RecordTypeA.String(),
+			"record_type", recordType.String(),
 		)
 
 		r.Target = ip
