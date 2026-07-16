@@ -53,6 +53,7 @@ func (u *Updater) Update(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	slog.Debug("current dns zones", "zones", zones)
 
 	eg, _ := errgroup.WithContext(ctx)
 	for domain, zone := range zones {
