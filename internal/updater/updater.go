@@ -42,7 +42,7 @@ func (u *Updater) Update(ctx context.Context) error {
 	slog.Debug("current public IPs", "v4", currentIps.V4, "v6", currentIps.V6)
 
 	isPreviousIpsNil := u.previousIps.V4.IsUnspecified() && u.previousIps.V6.IsUnspecified()
-	if isPreviousIpsNil && currentIps.Equal(u.previousIps) {
+	if !isPreviousIpsNil && currentIps.Equal(u.previousIps) {
 		slog.Info("public IPs have not changed, skipping dns update")
 		return nil
 	}
