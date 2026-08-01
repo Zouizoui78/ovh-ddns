@@ -2,8 +2,8 @@ package config
 
 import (
 	"errors"
-	"log/slog"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -53,12 +53,12 @@ func configInit(cmd *cobra.Command) {
 	viper.BindPFlag("auth.consumer_key", cmd.PersistentFlags().Lookup(CONSUMER_KEY_FLAG))
 }
 
-func LoadConfig(cmd *cobra.Command) (*Config, error) {
+func LoadConfig(cmd *cobra.Command) (*Config, []error) {
 	configInit(cmd)
 
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := errors.AsType[viper.ConfigFileNotFoundError](err); !ok {
-			return nil, err
+			return nil, []error{err}
 		}
 	}
 
@@ -66,14 +66,11 @@ func LoadConfig(cmd *cobra.Command) (*Config, error) {
 
 	var cfg Config
 	if err := viper.Unmarshal(&cfg); err != nil {
-		return nil, err
+		return nil, []error{err}
 	}
 
 	if err := validate(&cfg); len(err) != 0 {
-		for _, e := range err {
-			slog.Error("validation error", "error", e)
-		}
-		return nil, errors.New("validation error")
+		return nil, err
 	}
 
 	return &cfg, nil
@@ -82,19 +79,38 @@ func LoadConfig(cmd *cobra.Command) (*Config, error) {
 func validate(cfg *Config) []error {
 	var err []error
 
-	if len(cfg.Domains) == 0 {
+	err = validateLogLevel(cfg.LogLevel, err)
+	err = validateDomains(cfg.Domains, err)
+	err = validateAuth(cfg.Auth, err)
+
+	return err
+}
+
+func validateLogLevel(logLevel string, err []error) []error {
+	possibleLogLevels := []string{"debug", "info", "warn", "error"}
+	if !slices.Contains(possibleLogLevels, logLevel) {
+		err = append(err, errors.New("log level must be either 'debug', 'info', 'warn' or 'error'"))
+	}
+	return err
+}
+
+func validateDomains(domains []string, err []error) []error {
+	if len(domains) == 0 {
 		err = append(err, errors.New("need at least one configured domain"))
 	}
+	return err
+}
 
-	if cfg.Auth.AppKey == "" {
+func validateAuth(auth Auth, err []error) []error {
+	if auth.AppKey == "" {
 		err = append(err, errors.New("app key cannot be empty"))
 	}
 
-	if cfg.Auth.AppSecret == "" {
+	if auth.AppSecret == "" {
 		err = append(err, errors.New("app secret cannot be empty"))
 	}
 
-	if cfg.Auth.ConsumerKey == "" {
+	if auth.ConsumerKey == "" {
 		err = append(err, errors.New("consumer key cannot be empty"))
 	}
 

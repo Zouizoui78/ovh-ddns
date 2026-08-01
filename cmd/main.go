@@ -20,9 +20,11 @@ var cmd = &cobra.Command{
 }
 
 func run(cmd *cobra.Command, args []string) {
-	cfg, err := config.LoadConfig(cmd)
-	if err != nil {
-		slog.Error("failed to load configuration", "error", err)
+	cfg, cfgErr := config.LoadConfig(cmd)
+	if len(cfgErr) != 0 {
+		for _, e := range cfgErr {
+			slog.Error("validation error", "error", e)
+		}
 		os.Exit(1)
 	}
 
