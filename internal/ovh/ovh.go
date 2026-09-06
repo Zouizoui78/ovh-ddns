@@ -206,7 +206,7 @@ func (ovh *Ovh) getRecord(ctx context.Context, zoneName string, recordType strin
 	var ids []int
 	err := ovh.client.GetWithContext(
 		ctx,
-		fmt.Sprintf("/domain/zone/%s/record?fieldType=%s", zoneName, recordType),
+		fmt.Sprintf("/domain/zone/%s/record?fieldType=%s&subDomain=", zoneName, recordType),
 		&ids,
 	)
 	if err != nil {
