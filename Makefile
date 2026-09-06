@@ -37,7 +37,7 @@ test:
 .PHONY: test-cicd
 test-cicd:
 	@mkdir -p test
-	@go test -tags dev -v -race -cover -coverprofile=$(COVERAGE_FILE) -json ./... > $(TEST_REPORT)
+	@go test -tags dev -v -race -cover -coverprofile=$(COVERAGE_FILE) ./...
 
 .PHONY: test-race
 test-race:
