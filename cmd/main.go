@@ -4,7 +4,9 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/Zouizoui78/ovh-ddns/internal/config"
@@ -64,6 +66,17 @@ func run(cmd *cobra.Command, args []string) {
 	updateTicker := time.NewTicker(cfg.UpdateInterval)
 	defer updateTicker.Stop()
 
+	shutdownCh := make(chan struct{})
+
+	go func() {
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+		<-sigCh
+		slog.Debug("received signal to shut down")
+		updateTicker.Stop()
+		close(shutdownCh)
+	}()
+
 	doUpdate := func() {
 		err = updater.Update(ctx)
 		if err != nil {
@@ -72,8 +85,13 @@ func run(cmd *cobra.Command, args []string) {
 	}
 	doUpdate()
 
-	for range updateTicker.C {
-		doUpdate()
+	for {
+		select {
+		case <-shutdownCh:
+			return
+		case <-updateTicker.C:
+			doUpdate()
+		}
 	}
 }
 
