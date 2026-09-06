@@ -84,21 +84,21 @@ func (f *fakeClient) PutWithContext(ctx context.Context, url string, reqBody, re
 func TestGetDnsZones(t *testing.T) {
 	client := &fakeClient{
 		responses: map[string]any{
-			"/domain/zone/example.com/record?fieldType=A":    []int{1},
-			"/domain/zone/example.com/record/1":              newARecordDto("1.2.3.4"),
-			"/domain/zone/example.com/record?fieldType=AAAA": []int{2},
-			"/domain/zone/example.com/record/2":              newAAAARecordDto("2001:db8::1"),
-			"/domain/zone/example.net/record?fieldType=A":    []int{3},
-			"/domain/zone/example.net/record/3":              newARecordDto("5.6.7.8"),
-			"/domain/zone/example.net/record?fieldType=AAAA": []int{4},
-			"/domain/zone/example.net/record/4":              newAAAARecordDto("2001:db8::2"),
+			"/domain/zone/example.com/record?fieldType=A&subDomain=":    []int{1},
+			"/domain/zone/example.com/record/1":                         newARecordDto("1.2.3.4"),
+			"/domain/zone/example.com/record?fieldType=AAAA&subDomain=": []int{2},
+			"/domain/zone/example.com/record/2":                         newAAAARecordDto("2001:db8::1"),
+			"/domain/zone/example.net/record?fieldType=A&subDomain=":    []int{3},
+			"/domain/zone/example.net/record/3":                         newARecordDto("5.6.7.8"),
+			"/domain/zone/example.net/record?fieldType=AAAA&subDomain=": []int{4},
+			"/domain/zone/example.net/record/4":                         newAAAARecordDto("2001:db8::2"),
 		},
 	}
 
 	ovh := NewFromClient(client, false)
 	got, err := ovh.GetDnsZones(context.Background(), []string{"example.com", "example.net"})
 	if err != nil {
-		t.Fatalf("GetDomainsIps returned error: %v", err)
+		t.Fatalf("GetDnsZones returned error: %v", err)
 	}
 
 	if len(got) != 2 {
@@ -127,9 +127,9 @@ func TestGetDnsZones(t *testing.T) {
 func TestGetDnsZonesReturnNilAddrWhenNoRecord(t *testing.T) {
 	client := &fakeClient{
 		responses: map[string]any{
-			"/domain/zone/example.com/record?fieldType=A":    []int{},
-			"/domain/zone/example.com/record?fieldType=AAAA": []int{2},
-			"/domain/zone/example.com/record/2":              newAAAARecordDto("2001:db8::1"),
+			"/domain/zone/example.com/record?fieldType=A&subDomain=":    []int{},
+			"/domain/zone/example.com/record?fieldType=AAAA&subDomain=": []int{2},
+			"/domain/zone/example.com/record/2":                         newAAAARecordDto("2001:db8::1"),
 		},
 	}
 
