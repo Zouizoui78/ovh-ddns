@@ -46,7 +46,9 @@ func run(cmd *cobra.Command, args []string) {
 	slog.SetDefault(logger)
 	defer slog.Debug("exiting")
 
+	if cfg.DryRun {
 	slog.Info("dry run mode active")
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
