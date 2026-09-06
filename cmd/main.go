@@ -60,9 +60,20 @@ func run(cmd *cobra.Command, args []string) {
 		slog.Error("failed to create ovh client", "err", err)
 	}
 	updater := updater.New(fetcher, ovh, cfg.Domains)
-	err = updater.Update(ctx)
-	if err != nil {
-		slog.Error(err.Error())
+
+	updateTicker := time.NewTicker(cfg.UpdateInterval)
+	defer updateTicker.Stop()
+
+	doUpdate := func() {
+		err = updater.Update(ctx)
+		if err != nil {
+			slog.Error(err.Error())
+		}
+	}
+	doUpdate()
+
+	for range updateTicker.C {
+		doUpdate()
 	}
 }
 
