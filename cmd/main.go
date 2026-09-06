@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/Zouizoui78/ovh-ddns/internal/config"
 	"github.com/Zouizoui78/ovh-ddns/internal/fetcher"
@@ -47,7 +48,7 @@ func run(cmd *cobra.Command, args []string) {
 	defer slog.Debug("exiting")
 
 	if cfg.DryRun {
-	slog.Info("dry run mode active")
+		slog.Info("dry run mode active")
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -72,6 +73,7 @@ func init() {
 	cmd.PersistentFlags().String(config.APP_KEY_FLAG, "", "OVH application key")
 	cmd.PersistentFlags().String(config.APP_SECRET_FLAG, "", "OVH application secret")
 	cmd.PersistentFlags().String(config.CONSUMER_KEY_FLAG, "", "OVH application consumer key")
+	cmd.PersistentFlags().Duration(config.UPDATE_INTERVAL_FLAG, time.Minute, "Wait time between two updates. Must be >1min")
 }
 
 func main() {
