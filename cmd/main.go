@@ -53,9 +53,6 @@ func run(cmd *cobra.Command, args []string) {
 		slog.Info("dry run mode active")
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	fetcher := fetcher.New()
 	ovh, err := ovh.New(cfg.Auth, cfg.DryRun)
 	if err != nil {
@@ -63,7 +60,7 @@ func run(cmd *cobra.Command, args []string) {
 	}
 	updater := updater.New(fetcher, ovh, cfg.Domains)
 
-	updateTicker := time.NewTicker(cfg.UpdateInterval)
+	updateTicker := time.NewTicker(cfg.Update.Interval)
 	defer updateTicker.Stop()
 
 	shutdownCh := make(chan struct{})
@@ -78,6 +75,9 @@ func run(cmd *cobra.Command, args []string) {
 	}()
 
 	doUpdate := func() {
+		ctx, cancel := context.WithTimeout(context.Background(), cfg.Update.Timeout)
+		defer cancel()
+
 		err = updater.Update(ctx)
 		if err != nil {
 			slog.Error(err.Error())
@@ -103,6 +103,7 @@ func init() {
 	cmd.PersistentFlags().String(config.APP_SECRET_FLAG, "", "OVH application secret")
 	cmd.PersistentFlags().String(config.CONSUMER_KEY_FLAG, "", "OVH application consumer key")
 	cmd.PersistentFlags().Duration(config.UPDATE_INTERVAL_FLAG, time.Minute, "Wait time between two updates. Must be >1min")
+	cmd.PersistentFlags().Duration(config.UPDATE_TIMEOUT_FLAG, time.Second*30, "Update timeout")
 }
 
 func main() {

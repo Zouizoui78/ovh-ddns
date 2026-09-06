@@ -24,6 +24,7 @@ const (
 	CONSUMER_KEY_FLAG = "consumer-key"
 
 	UPDATE_INTERVAL_FLAG = "update-interval"
+	UPDATE_TIMEOUT_FLAG  = "update-timeout"
 )
 
 type Auth struct {
@@ -32,12 +33,17 @@ type Auth struct {
 	ConsumerKey string `mapstructure:"consumer_key"`
 }
 
+type Update struct {
+	Interval time.Duration `mapstructure:"interval"`
+	Timeout  time.Duration `mapstructure:"timeout"`
+}
+
 type Config struct {
-	LogLevel       string        `mapstructure:"log_level"`
-	DryRun         bool          `mapstructure:"dry_run"`
-	Domains        []string      `mapstructure:"domains"`
-	Auth           Auth          `mapstructure:"auth"`
-	UpdateInterval time.Duration `mapstructure:"update_interval"`
+	LogLevel string   `mapstructure:"log_level"`
+	DryRun   bool     `mapstructure:"dry_run"`
+	Domains  []string `mapstructure:"domains"`
+	Auth     Auth     `mapstructure:"auth"`
+	Update   Update   `mapstructure:"update"`
 }
 
 func configInit(cmd *cobra.Command) {
@@ -55,7 +61,8 @@ func configInit(cmd *cobra.Command) {
 	viper.BindPFlag("auth.app_key", cmd.PersistentFlags().Lookup(APP_KEY_FLAG))
 	viper.BindPFlag("auth.app_secret", cmd.PersistentFlags().Lookup(APP_SECRET_FLAG))
 	viper.BindPFlag("auth.consumer_key", cmd.PersistentFlags().Lookup(CONSUMER_KEY_FLAG))
-	viper.BindPFlag("update_interval", cmd.PersistentFlags().Lookup(UPDATE_INTERVAL_FLAG))
+	viper.BindPFlag("update.interval", cmd.PersistentFlags().Lookup(UPDATE_INTERVAL_FLAG))
+	viper.BindPFlag("update.timeout", cmd.PersistentFlags().Lookup(UPDATE_TIMEOUT_FLAG))
 }
 
 func LoadConfig(cmd *cobra.Command) (*Config, []error) {
@@ -87,7 +94,7 @@ func validate(cfg *Config) []error {
 	err = validateLogLevel(cfg.LogLevel, err)
 	err = validateDomains(cfg.Domains, err)
 	err = validateAuth(cfg.Auth, err)
-	err = validateUpdateInterval(cfg.UpdateInterval, err)
+	err = validateUpdate(cfg.Update, err)
 
 	return err
 }
@@ -125,8 +132,8 @@ func validateAuth(auth Auth, err []error) []error {
 	return err
 }
 
-func validateUpdateInterval(updateInterval time.Duration, err []error) []error {
-	if updateInterval < time.Minute {
+func validateUpdate(update Update, err []error) []error {
+	if update.Interval < time.Minute {
 		err = append(err, errors.New("update interval cannot be shorter than 1min"))
 	}
 
